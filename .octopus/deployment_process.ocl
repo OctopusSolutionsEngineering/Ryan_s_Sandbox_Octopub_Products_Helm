@@ -1,0 +1,101 @@
+step "create-namespace-if-not-exists" {
+    name = "Create namespace if not exists"
+    properties = {
+        Octopus.Action.TargetRoles = "demo-k8s-cluster"
+    }
+
+    action {
+        action_type = "Octopus.KubernetesRunScript"
+        properties = {
+            Octopus.Action.Script.ScriptBody = <<-EOT
+                # Set varaibles
+                $clusterNamespace = $OctopusParameters["Octopub.Helm.Cluster.Namespace"]
+                
+                # Get existing namespaces
+                Write-Host "Retrieving namespaces ..."
+                $namespaces = (kubectl get namespaces -o JSON | ConvertFrom-Json)
+                
+                # Check to see if namespace exists
+                if ($null -eq ($namespaces.Items | Where-Object {$_.metadata.name -eq $clusterNamespace}))
+                {
+                	# Create the namespace
+                    Write-Host "Namespace $clusetrNamespace doesn't exist, creating ..."
+                    kubectl create namespace $clusterNamespace
+                }
+                else
+                {
+                	Write-Host "Namespace $clusterNamespace already exists, moving on ..."
+                }
+                EOT
+            Octopus.Action.Script.ScriptSource = "Inline"
+            Octopus.Action.Script.Syntax = "PowerShell"
+        }
+        worker_pool_variable = "Project.Worker.Pool"
+    }
+}
+
+step "deploy-octopub-products-chart" {
+    name = "Deploy Octopub Products chart"
+    properties = {
+        Octopus.Action.TargetRoles = "demo-k8s-cluster"
+    }
+
+    action {
+        action_type = "Octopus.HelmChartUpgrade"
+        properties = {
+            Octopus.Action.GitRepository.Source = "External"
+            Octopus.Action.Helm.ChartDirectory = "helm/octopub-products-mysql"
+            Octopus.Action.Helm.ClientVersion = "V3"
+            Octopus.Action.Helm.Namespace = "#{Octopub.Helm.Cluster.Namespace}"
+            Octopus.Action.Helm.ResetValues = "True"
+            Octopus.Action.Helm.YamlValues = <<-EOT
+                database:
+                  hostname: #{Octopub.Helm.Database.Server.Name}
+                  port: 3306
+                  username: #{Octopub.Helm.Database.Server.User}
+                  password: #{Octopub.Helm.Database.Server.Password}
+                  name: #{Octopub.Helm.Database.Name}
+                  migrateOnStartup: false
+                  
+                ingress:
+                  enabled: true
+                  className: "nginx"
+                  annotations: {
+                     }
+                  hosts:
+                    - host: #{Octopub.Helm.Host.Name}
+                      paths:
+                        - path: /api/products
+                          pathType: Prefix
+                        
+                service:
+                  type: ClusterIP
+                  port: 8083
+                  
+                image:
+                  repository: ghcr.io/#{Octopus.Action.Package[octopub-products-microservice-mysql].PackageId}
+                  tag: #{Octopus.Action.Package[octopub-products-microservice-mysql].PackageVersion}          
+                EOT
+            Octopus.Action.Script.ScriptSource = "GitRepository"
+        }
+        worker_pool_variable = ""
+
+        git_dependencies {
+            default_branch = "main"
+            git_credential_id = "GitCredentials-922"
+            git_credential_type = "Library"
+            repository_uri = "https://github.com/OctopusSolutionsEngineering/Octopub.git"
+        }
+
+        packages "octopub-products-microservice-mysql" {
+            acquisition_location = "NotAcquired"
+            feed = "github-container-registry"
+            package_id = "octopussolutionsengineering/octopub-products-microservice-mysql"
+            properties = {
+                Extract = "False"
+                Purpose = "DockerImageReference"
+                SelectionMode = "immediate"
+            }
+        }
+    }
+}
