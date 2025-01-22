@@ -76,6 +76,7 @@ step "deploy-octopub-products-chart" {
                   repository: ghcr.io/#{Octopus.Action.Package[octopub-products-microservice-mysql].PackageId}
                   tag: #{Octopus.Action.Package[octopub-products-microservice-mysql].PackageVersion}          
                 EOT
+            Octopus.Action.RunOnServer = "false"
             Octopus.Action.Script.ScriptSource = "GitRepository"
         }
         worker_pool_variable = ""
@@ -89,8 +90,8 @@ step "deploy-octopub-products-chart" {
 
         packages "octopub-products-microservice-mysql" {
             acquisition_location = "NotAcquired"
-            feed = "github-container-registry"
-            package_id = "octopussolutionsengineering/octopub-products-microservice-mysql"
+            feed = "docker-hub"
+            package_id = "octopussamples/octopub-products-microservice-mysql"
             properties = {
                 Extract = "False"
                 Purpose = "DockerImageReference"
