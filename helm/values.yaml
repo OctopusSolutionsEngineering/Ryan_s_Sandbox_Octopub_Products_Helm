@@ -4,27 +4,22 @@
 
 replicaCount: 1
 
-productEndpointOverride: ""
-productHealthEndpointOverride: ""
-auditsEndpointOverride: ""
-auditsHealthEndpointOverride: ""
-# These values can be blue, green, pink, orange, or custom
-overrideTheme: ""
-
-# When the overrideTheme is set to "custom", the values below are used for the theme
-customPrimaryColor: ""
-customSecondaryColor: ""
-customBackgroundColor: ""
-customPaperColor: ""
-
 image:
-  repository: octopussamples/octopub-frontend
+  repository: octopussamples/octopub-products-microservice-mysql
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
 
+database:
+  hostname: localhost
+  port: 3306
+  name: product
+  username: root
+  password: password
+  migrateOnStartup: true
+
 network:
-  port: 8080
+  port: 8083
 
 imagePullSecrets: []
 nameOverride: ""
@@ -70,8 +65,8 @@ ingress:
   hosts:
     - host:
       paths:
-      - path: /
-        pathType: Prefix
+        - path: /api/products
+          pathType: Prefix
   tls: []
   #  - secretName: chart-example-tls
   #    hosts:
